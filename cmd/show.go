@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"fmt"
+	"libify/handlers"
 
 	"github.com/spf13/cobra"
 )
@@ -14,7 +14,8 @@ var showCmd = &cobra.Command{
 
     libify show --password 123 --username almas`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("Password %s and User %s\n", password, username)
+		credentials := handlers.LibraryCredentials{Password: password, Username: username}
+		handlers.HandleShowBooks(&credentials)
 	},
 }
 var (
@@ -34,5 +35,5 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	showCmd.PersistentFlags().StringVarP(&password, "password", "p", "", "Profile password")
-	showCmd.PersistentFlags().StringVar(&username, "username", "", "Username")
+	showCmd.PersistentFlags().StringVarP(&username, "username", "u", "", "Username")
 }
