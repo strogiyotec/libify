@@ -1,11 +1,15 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"regexp"
+)
+
+const (
+	LOGIN_URL = "https://newwestminster.bibliocommons.com/user/login?destination=https://newwestminster.bibliocommons.com/"
 )
 
 type LibraryCredentials struct {
@@ -13,7 +17,6 @@ type LibraryCredentials struct {
 	Username string
 }
 
-//utf8=%E2%9C%93&authenticity_token=XlpUFmQajGvZlGMMwp1lbzMEdblpQBTDFU6ETOc8ZP4%3D&name=21865044497932&user_pin=5183&remember_me=true&local=false
 type LoginRequest struct {
 	authenticity_token string
 	name               string
@@ -37,20 +40,29 @@ func getCsrfToken() string {
 }
 
 func (cred *LibraryCredentials) login(token string) {
-	body, err := json.Marshal(LoginRequest{
-		authenticity_token: token,
-		local:              false,
-		remember_me:        false,
-		name:               cred.Username,
-		user_pin:           cred.Password,
-	})
+	fmt.Println("Send request")
+	response, err := http.PostForm(LOGIN_URL, url.Values{
+		"utf8":               {"%E2%9C%93"},
+		"authenticity_token": {token},
+		"name":               {cred.Username},
+		"user_pin":           {cred.Password},
+		"remember_me":        {"false"},
+		"local":              {"false"}})
 	if err != nil {
 		panic("Error during marshaling")
 	}
-	fmt.Println(body)
+	defer response.Body.Close()
+	fmt.Printf("Headers %v", response.Header)
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		panic("Can't read body")
+	}
+	fmt.Println(string(body))
 }
 
 func HandleShowBooks(cred *LibraryCredentials) {
+	fmt.Println(cred)
 	token := getCsrfToken()
+	fmt.Printf("Token is %s\n", token)
 	cred.login(token)
 }
