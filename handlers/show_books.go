@@ -11,6 +11,7 @@ import (
 	"strings"
 )
 
+//TODO: need to change this constants because they won't work for VPL
 const (
 	LOGIN_REQUEST_URL          = "https://newwestminster.bibliocommons.com/user/login?destination=%2Fuser_dashboard"
 	HOME_URL                   = "https://newwestminster.bibliocommons.com/v2/checkedout/out"
@@ -48,7 +49,13 @@ func (httpCred *HttpCredentials) checkouts() []Checkouts {
 	for bookId := range checkoutsJsonArray {
 		// Each value is an interface{} type, that is type asserted as a string
 		checkoutJson := checkoutsJsonArray[bookId].(map[string]interface{})
-		checkouts = append(checkouts, Checkouts{bibTitle: checkoutJson["bibTitle"].(string), dueDate: checkoutJson["dueDate"].(string)})
+		checkouts = append(
+			checkouts,
+			Checkouts{
+				bibTitle: checkoutJson["bibTitle"].(string),
+				dueDate:  checkoutJson["dueDate"].(string),
+			},
+		)
 	}
 	return checkouts
 }
@@ -71,7 +78,6 @@ func (httpCred *HttpCredentials) sendApiRequest() string {
 	return string(bodyBytes)
 }
 
-//TODO: library doesn't recognize the request ,something wrong with cookies
 func (httpCred *HttpCredentials) getAccountId() string {
 	client := &http.Client{}
 	req, _ := http.NewRequest("GET", HOME_URL, nil)
@@ -109,7 +115,11 @@ func (cred *LibraryCredentials) getAccessToken(token string) HttpCredentials {
 	values := url.Values{
 		"name":     {cred.Username},
 		"user_pin": {cred.Password}}
-	req, err := http.NewRequest("POST", LOGIN_REQUEST_URL, bytes.NewBufferString(values.Encode()))
+	req, err := http.NewRequest(
+		"POST",
+		LOGIN_REQUEST_URL,
+		bytes.NewBufferString(values.Encode()),
+	)
 	if err != nil {
 		panic("Error during marshaling")
 	}
