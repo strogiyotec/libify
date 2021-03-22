@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -24,16 +25,36 @@ type LibraryCredentials struct {
 	Username string
 }
 
+type Checkouts struct {
+	bibTitle string
+	dueDate  string
+}
+
 type HttpCredentials struct {
 	bcAccessToken string
-	sessionId     string
 }
 
 func (httpCred *HttpCredentials) cookies() string {
-	return ACCESS_TOKEN + "=" + httpCred.bcAccessToken + ";" + SESSION_ID + "=" + httpCred.sessionId + ";"
+	return ACCESS_TOKEN + "=" + httpCred.bcAccessToken + ";"
 }
 
-func (httpCred *HttpCredentials) sendApiRequest() {
+func (httpCred *HttpCredentials) checkouts() []Checkouts {
+	checkouts := []Checkouts{}
+	var result map[string]interface{}
+	json.Unmarshal([]byte(httpCred.sendApiRequest()), &result)
+	entities := result["entities"].(map[string]interface{})
+	checkoutsJsonArray := entities["checkouts"].(map[string]interface{})
+
+	for bookId := range checkoutsJsonArray {
+		// Each value is an interface{} type, that is type asserted as a string
+		checkoutJson := checkoutsJsonArray[bookId].(map[string]interface{})
+		checkouts = append(checkouts, Checkouts{bibTitle: checkoutJson["bibTitle"].(string), dueDate: checkoutJson["dueDate"].(string)})
+	}
+	return checkouts
+}
+
+//send api request to get a list of checkout books as json string
+func (httpCred *HttpCredentials) sendApiRequest() string {
 	accountId := httpCred.getAccountId()
 	client := &http.Client{}
 	req, _ := http.NewRequest("GET", fmt.Sprintf(CHECKOUT_BOOKS_REQUEST_URL, accountId), nil)
@@ -47,8 +68,7 @@ func (httpCred *HttpCredentials) sendApiRequest() {
 	if err != nil {
 		panic(err)
 	}
-	body := string(bodyBytes)
-	fmt.Println(body)
+	return string(bodyBytes)
 }
 
 //TODO: library doesn't recognize the request ,something wrong with cookies
@@ -66,8 +86,7 @@ func (httpCred *HttpCredentials) getAccountId() string {
 		panic(err)
 	}
 	body := string(bodyBytes)
-	fmt.Println(body)
-	re := regexp.MustCompile(`"id":(?P<ID>[^,]+)`)
+	re := regexp.MustCompile(`"accounts":\[(?P<ID>[^]]+)`)
 	matches := re.FindStringSubmatch(string(body))
 	return matches[re.SubexpIndex("ID")]
 }
@@ -106,23 +125,18 @@ func (cred *LibraryCredentials) getAccessToken(token string) HttpCredentials {
 	}
 	defer resp.Body.Close()
 	var bcToken string
-	var sessionId string
 	for _, value := range resp.Header["Set-Cookie"] {
 		split := strings.Split(value, ";")
 		if strings.Contains(split[0], ACCESS_TOKEN) {
 			bcToken = split[0][strings.Index(split[0], "=")+1:]
-		}
-		if strings.Contains(split[0], SESSION_ID) {
-			sessionId = split[0][strings.Index(split[0], "=")+1:]
+			break
 		}
 	}
-	return HttpCredentials{bcAccessToken: bcToken, sessionId: sessionId}
+	return HttpCredentials{bcAccessToken: bcToken}
 }
 
 func HandleShowBooks(cred *LibraryCredentials) {
-	fmt.Println(cred)
 	token := getCsrfToken()
-	fmt.Printf("Token is %s\n", token)
 	httpCred := cred.getAccessToken(token)
-	httpCred.sendApiRequest()
+	fmt.Println(httpCred.checkouts())
 }
