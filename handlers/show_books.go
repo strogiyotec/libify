@@ -7,10 +7,16 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 )
 
 const (
-	LOGIN_URL = "https://newwestminster.bibliocommons.com/user/login?destination=https://newwestminster.bibliocommons.com/"
+	LOGIN_REQUEST_URL          = "https://newwestminster.bibliocommons.com/user/login?destination=%2Fuser_dashboard"
+	HOME_URL                   = "https://newwestminster.bibliocommons.com/v2/checkedout/out"
+	LOGIN_PAGE_URL             = "https://newwestminster.bibliocommons.com/user_dashboard"
+	CHECKOUT_BOOKS_REQUEST_URL = "https://gateway.bibliocommons.com/v2/libraries/newwestminster/checkouts?accountId=%s&size=25&status=OUT&page=1&sort=status&materialType=&locale=en-CA"
+	ACCESS_TOKEN               = "bc_access_token"
+	SESSION_ID                 = "session_id"
 )
 
 type LibraryCredentials struct {
@@ -18,16 +24,56 @@ type LibraryCredentials struct {
 	Username string
 }
 
-type LoginRequest struct {
-	authenticity_token string
-	name               string
-	user_pin           string
-	remember_me        bool
-	local              bool
+type HttpCredentials struct {
+	bcAccessToken string
+	sessionId     string
+}
+
+func (httpCred *HttpCredentials) cookies() string {
+	return ACCESS_TOKEN + "=" + httpCred.bcAccessToken + ";" + SESSION_ID + "=" + httpCred.sessionId + ";"
+}
+
+func (httpCred *HttpCredentials) sendApiRequest() {
+	accountId := httpCred.getAccountId()
+	client := &http.Client{}
+	req, _ := http.NewRequest("GET", fmt.Sprintf(CHECKOUT_BOOKS_REQUEST_URL, accountId), nil)
+	req.Header.Set("Cookie", httpCred.cookies())
+	res, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer res.Body.Close()
+	bodyBytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		panic(err)
+	}
+	body := string(bodyBytes)
+	fmt.Println(body)
+}
+
+//TODO: library doesn't recognize the request ,something wrong with cookies
+func (httpCred *HttpCredentials) getAccountId() string {
+	client := &http.Client{}
+	req, _ := http.NewRequest("GET", HOME_URL, nil)
+	req.Header.Set("Cookie", httpCred.cookies())
+	res, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer res.Body.Close()
+	bodyBytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		panic(err)
+	}
+	body := string(bodyBytes)
+	fmt.Println(body)
+	re := regexp.MustCompile(`"id":(?P<ID>[^,]+)`)
+	matches := re.FindStringSubmatch(string(body))
+	return matches[re.SubexpIndex("ID")]
 }
 
 func getCsrfToken() string {
-	resp, err := http.Get("https://newwestminster.bibliocommons.com/user_dashboard")
+	resp, err := http.Get(LOGIN_PAGE_URL)
 	if err != nil {
 		panic("Can't reach out NPL library")
 	}
@@ -40,44 +86,43 @@ func getCsrfToken() string {
 	return matches[re.SubexpIndex("TOKEN")]
 }
 
-func (cred *LibraryCredentials) login(token string) {
-	fmt.Println("Send request")
-
+func (cred *LibraryCredentials) getAccessToken(token string) HttpCredentials {
 	values := url.Values{
-		"utf8":               {"%E2%9C%93"},
-		"authenticity_token": {token},
-		"name":               {cred.Username},
-		"user_pin":           {cred.Password},
-		"remember_me":        {"false"},
-		"local":              {"false"}}
-	req, err := http.NewRequest("POST", LOGIN_URL, bytes.NewBufferString(values.Encode()))
+		"name":     {cred.Username},
+		"user_pin": {cred.Password}}
+	req, err := http.NewRequest("POST", LOGIN_REQUEST_URL, bytes.NewBufferString(values.Encode()))
 	if err != nil {
 		panic("Error during marshaling")
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
 	req.Header.Set("Accept", "application/json, text/javascript, */*; q=0.01")
-	req.Header.Set("Host", "newwestminster.bibliocommons.com")
 	req.Header.Set("X-CSRF-Token", token)
-	req.Header.Set("Origin", "https://newwestminster.bibliocommons.com")
-	req.Header.Set("Referer", "https://newwestminster.bibliocommons.com/user/login?destination=https%3A%2F%2Fnewwestminster.bibliocommons.com%2F")
+	req.Header.Set("X-RESPONSIVE-PAGE", "true")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+	req.Header.Set("X-Requested-With", "XMLHttpRequest")
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		panic(err)
 	}
 	defer resp.Body.Close()
-	fmt.Printf("Headers %v", resp.Header)
-	fmt.Printf("Response code %d\n", resp.StatusCode)
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		panic("Can't read body")
+	var bcToken string
+	var sessionId string
+	for _, value := range resp.Header["Set-Cookie"] {
+		split := strings.Split(value, ";")
+		if strings.Contains(split[0], ACCESS_TOKEN) {
+			bcToken = split[0][strings.Index(split[0], "=")+1:]
+		}
+		if strings.Contains(split[0], SESSION_ID) {
+			sessionId = split[0][strings.Index(split[0], "=")+1:]
+		}
 	}
-	fmt.Println(string(body))
+	return HttpCredentials{bcAccessToken: bcToken, sessionId: sessionId}
 }
 
 func HandleShowBooks(cred *LibraryCredentials) {
 	fmt.Println(cred)
 	token := getCsrfToken()
 	fmt.Printf("Token is %s\n", token)
-	cred.login(token)
+	httpCred := cred.getAccessToken(token)
+	httpCred.sendApiRequest()
 }
