@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/fatih/color"
 )
 
 //TODO: need to change this constants because they won't work for VPL
@@ -148,5 +150,11 @@ func (cred *LibraryCredentials) getAccessToken(token string) HttpCredentials {
 func HandleShowBooks(cred *LibraryCredentials) {
 	token := getCsrfToken()
 	httpCred := cred.getAccessToken(token)
-	fmt.Println(httpCred.checkouts())
+	fmt.Println("You borrowed the following books")
+	fmt.Println("Title \t Due date")
+	yellow := color.New(color.FgYellow).SprintFunc()
+	red := color.New(color.FgRed).SprintFunc()
+	for _, book := range httpCred.checkouts() {
+		fmt.Printf("%s\t%s\n", yellow(book.bibTitle), red(book.dueDate))
+	}
 }

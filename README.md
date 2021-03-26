@@ -1,8 +1,21 @@
 # libify
-Save deadline date of borrowed books into Google calendar
+Print borrowed books from BC libraries. Optionally save due dates into your Google calendar
 
 # Motivation
-I often borrow books from **Vancouver Public Library** or **New West Public Library** 
-but I don't remember the holding expriration date.
+**Libify** is a fastest way to see all of your borrowed books with corresponding deadlines
 
-**Libify** provides a cli to save all deadlines into your google calendar
+## Usage
+```
+./libify show -p=password -u=user_id
+```
+1. `-p` - password which is usually last 4 numbers of your phone
+2. `-u` - username ,you can check it in the front of your library card
+
+# Example output
+
+![Output](images/screenshot.png)
+
+# Todo
+1. [ ]  Add Vancouver Library support
+2. [ ]  Add Google calendar intergration
+3. [ ]  Allow to set Password and Username using Environment variables
