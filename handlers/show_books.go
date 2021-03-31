@@ -99,6 +99,7 @@ func (httpCred *HttpCredentials) getAccountId() string {
 	return matches[re.SubexpIndex("ID")]
 }
 
+//Csrf token from login page
 func getCsrfToken() string {
 	resp, err := http.Get(LOGIN_PAGE_URL)
 	if err != nil {
@@ -113,6 +114,7 @@ func getCsrfToken() string {
 	return matches[re.SubexpIndex("TOKEN")]
 }
 
+//Session id
 func (cred *LibraryCredentials) getAccessToken(token string) HttpCredentials {
 	values := url.Values{
 		"name":     {cred.Username},
