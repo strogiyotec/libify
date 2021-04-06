@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/user"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -21,6 +22,7 @@ var (
 		Endpoint:     google.Endpoint,
 	}
 	oauthRandom = "random"
+	server      http.Server
 )
 
 const htmlIndex = `<html><body>
@@ -28,11 +30,20 @@ const htmlIndex = `<html><body>
 </body></html>
 `
 
+//TODO: create http client only when token doesn't exist
 func CreateClient() {
-	http.HandleFunc("/", handleMain)
-	http.HandleFunc("/GoogleLogin", handleLogin)
-	http.HandleFunc("/GoogleCallback", handleCallBack)
-	fmt.Println(http.ListenAndServe(":3000", nil))
+	user, _ := user.Current()
+	fmt.Println(user.HomeDir)
+	if _, err := os.Stat(user.HomeDir + "/.config/libify/token.txt"); err == nil {
+		fmt.Println("Exists")
+	} else {
+		http.HandleFunc("/", handleMain)
+		http.HandleFunc("/GoogleLogin", handleLogin)
+		http.HandleFunc("/GoogleCallback", handleCallBack)
+		server = http.Server{Addr: ":3000", Handler: nil}
+		server.ListenAndServe()
+		fmt.Println(http.ListenAndServe(":3000", nil))
+	}
 }
 func handleMain(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, htmlIndex)
@@ -47,13 +58,15 @@ func handleCallBack(w http.ResponseWriter, r *http.Request) {
 	}
 
 	code := r.FormValue("code")
+	//TODO: cache this token
 	token, err := googleOauthConf.Exchange(oauth2.NoContext, code)
 	if err != nil {
 		fmt.Printf("oauthConf.Exchange() failed with '%s'\n", err)
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		return
 	}
-
+	//server.Shutdown()
+	fmt.Println(token)
 	client := oauth2.NewClient(context.Background(), oauth2.StaticTokenSource(token))
 	service, err := calendar.New(client)
 	if err != nil {
