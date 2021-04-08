@@ -7,10 +7,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 
-	"github.com/fatih/color"
+	"github.com/olekukonko/tablewriter"
 )
 
 //TODO: need to change this constants because they won't work for VPL
@@ -152,11 +153,20 @@ func (cred *LibraryCredentials) getAccessToken(token string) HttpCredentials {
 func HandleShowBooks(cred *LibraryCredentials) {
 	token := getCsrfToken()
 	httpCred := cred.getAccessToken(token)
-	fmt.Println("You borrowed the following books")
-	fmt.Println("Title \t Due date")
-	yellow := color.New(color.FgYellow).SprintFunc()
-	red := color.New(color.FgRed).SprintFunc()
-	for _, book := range httpCred.checkouts() {
-		fmt.Printf("%s\t%s\n", yellow(book.bibTitle), red(book.dueDate))
+	prettyOutput(httpCred.checkouts())
+}
+
+func prettyOutput(books []Checkouts) {
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"Title", "Due date"})
+	table.SetHeaderColor(
+		tablewriter.Colors{tablewriter.BgGreenColor},
+		tablewriter.Colors{tablewriter.BgRedColor},
+	)
+	for _, book := range books {
+		row := []string{book.bibTitle, book.dueDate}
+		table.Append(row)
 	}
+	table.Render()
+
 }
