@@ -13,7 +13,7 @@ Print borrowed books from BC libraries. Optionally save due dates into your Goog
 
 # Example output
 
-![Output](images/screenshot.png)
+![Output](images/usege2.png)
 
 # Todo
 1. [ ]  Add Vancouver Library support
