@@ -3,6 +3,7 @@ package google
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/user"
@@ -34,9 +35,14 @@ const htmlIndex = `<html><body>
 func CreateClient() {
 	user, _ := user.Current()
 	fmt.Println(user.HomeDir)
-	if _, err := os.Stat(user.HomeDir + "/.config/libify/token.txt"); err == nil {
-		fmt.Println("Exists")
+	tokenPath := user.HomeDir + "/.config/libify/token.txt"
+	if _, err := os.Stat(tokenPath); err == nil {
+		bytes, _ := ioutil.ReadFile(tokenPath)
+		token := string(bytes)
+		calendarCommands := NewCalendar(token)
+		fmt.Print(calendarCommands)
 	} else {
+		//init http server
 		http.HandleFunc("/", handleMain)
 		http.HandleFunc("/GoogleLogin", handleLogin)
 		http.HandleFunc("/GoogleCallback", handleCallBack)
