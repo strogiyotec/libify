@@ -1,14 +1,15 @@
 package google
 
 import (
-	"fmt"
 	"testing"
 )
 
 func TestReadToken(t *testing.T) {
 	token := readToken("test_token.json")
-	fmt.Println("HERE")
 	if token.TokenType != "Bearer" {
-		t.Errorf("Token type has to be Bearer")
+		t.Errorf("Token type has to be Bearer, but was %s", token.TokenType)
+	}
+	if token.AccessToken != "token" {
+		t.Errorf("Access token has to be token , but was %s", token.AccessToken)
 	}
 }

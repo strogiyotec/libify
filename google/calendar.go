@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"libify/handlers"
 	"os"
+	"time"
 
 	"golang.org/x/oauth2"
 	"google.golang.org/api/calendar/v3"
@@ -31,11 +32,18 @@ func readToken(tokenPath string) *oauth2.Token {
 	if err != nil {
 		panic(err)
 	}
+	//Token struct has a expire field which is a time type, can't use
+	//unmarshal directly
 	token := oauth2.Token{}
+	var data map[string]interface{}
 	jsonParser := json.NewDecoder(configFile)
-	if err = jsonParser.Decode(&token); err != nil {
+	if err = jsonParser.Decode(&data); err != nil {
 		panic(err)
 	}
+	token.AccessToken = data["access_token"].(string)
+	token.RefreshToken = data["refresh_token"].(string)
+	token.TokenType = data["token_type"].(string)
+	token.Expiry = time.Now().Add(time.Duration(data["expiry"].(float64)) * time.Second)
 	return &token
 }
 func (comment *calendarCommands) SaveEvents(books []handlers.Checkouts) {
