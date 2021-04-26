@@ -3,15 +3,12 @@ package google
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/user"
-	"time"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
-	"google.golang.org/api/calendar/v3"
 )
 
 var (
@@ -35,12 +32,10 @@ const htmlIndex = `<html><body>
 func CreateClient() {
 	user, _ := user.Current()
 	fmt.Println(user.HomeDir)
-	tokenPath := user.HomeDir + "/.config/libify/token.txt"
+	tokenPath := user.HomeDir + "/.config/libify/token.json"
 	if _, err := os.Stat(tokenPath); err == nil {
-		bytes, _ := ioutil.ReadFile(tokenPath)
-		token := string(bytes)
-		calendarCommands := NewCalendar(token)
-		fmt.Print(calendarCommands)
+		calendarCommands := NewCalendar(tokenPath)
+		calendarCommands.ListEvents()
 	} else {
 		//init http server
 		http.HandleFunc("/", handleMain)
@@ -71,30 +66,11 @@ func handleCallBack(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		return
 	}
-	//server.Shutdown()
-	fmt.Println(token)
+	fmt.Println(token.TokenType, token.AccessToken, token.RefreshToken, token.Expiry)
 	client := oauth2.NewClient(context.Background(), oauth2.StaticTokenSource(token))
-	service, err := calendar.New(client)
-	if err != nil {
-		fmt.Fprintln(w, err)
-		return
-	}
-	events, err := service.
-		Events.
-		List("primary").
-		TimeMin(time.Now().
-			Format(time.RFC3339)).
-		MaxResults(5).
-		Do()
-	if err != nil {
-		fmt.Fprintln(w, err)
-		return
-	}
-	if len(events.Items) > 0 {
-		for _, i := range events.Items {
-			fmt.Fprintln(w, i.Summary, " ", i.Start.DateTime)
-		}
-	}
+	calendar := NewCalendarFromClient(client)
+	calendar.ListEvents()
+	server.Shutdown(context.Background())
 }
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {
